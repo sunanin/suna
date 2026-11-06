@@ -15,8 +15,9 @@ sudo apt install lua5.4
 brew install lua
 
 cd lua-lernspiel
-lua main.lua          # vom ersten Level an
-lua main.lua 9        # direkt bei Level 9 starten
+lua main.lua          # Kurs 1 vom ersten Level an
+lua main.lua 2        # Kurs 2 (Module, Dateien, Tests, Objekte)
+lua main.lua 1 9      # Kurs 1, direkt bei Level 9
 ```
 
 ## Bedienung
@@ -26,7 +27,7 @@ lua main.lua 9        # direkt bei Level 9 starten
 - `/loesung` zeigt die Musterlösung und geht zum nächsten Level.
 - `/quit` beendet das Spiel.
 
-## Levels
+## Kurs 1: Grundlagen
 
 21 Level in 8 Kapiteln plus Abschlussprojekt:
 
@@ -40,13 +41,25 @@ lua main.lua 9        # direkt bei Level 9 starten
 8. **Coroutines:** Werte nach und nach erzeugen
 9. **Abschlussprojekt:** Wörter zählen
 
+## Kurs 2: Module, Dateien, Tests
+
+9 Level, die auf Kurs 1 aufbauen:
+
+1. **Module:** eigenes Modul schreiben, `require` verwenden
+2. **Dateien:** lesen, schreiben, anhängen (in einer virtuellen Datei im Speicher, es werden keine echten Dateien verändert)
+3. **Tests:** einen eigenen Test-Runner mit `pcall` schreiben
+4. **Objekte vertieft:** Metamethoden (`__add`, `__eq`, `__tostring`) und Vererbung
+5. **Abschlussprojekt:** Inventar in einer Datei speichern und wieder laden
+
+Den Kurs-2-Code findest du in `kurs2.lua`.
+
 ## Selbsttest
 
 ```bash
 lua main.lua --selbsttest
 ```
 
-Prüft, dass alle Musterlösungen die Tests bestehen. Nützlich, wenn du selbst Levels änderst oder ergänzt.
+Prüft für beide Kurse, dass alle Musterlösungen die Tests bestehen. Nützlich, wenn du selbst Levels änderst oder ergänzt.
 
 ## Eigene Levels hinzufügen
 
@@ -57,3 +70,4 @@ Jedes Level in `main.lua` in der Liste `LEVELS` hat diese Felder:
   - `setup = { name = wert }`: Variablen, die vor dem Code gesetzt werden, oder
   - `aufruf = "funktion(3)"`: ein Ausdruck, dessen Ergebnis geprüft wird.
   - optional `zusatz = "..."`: Lua-Code, der vor dem Aufruf ausgeführt wird (z. B. Objekte anlegen).
+- Für Kurs 2 zusätzlich: `modul = true` (Code endet mit `return M`), `bibliothek = {...}` (Module für `require`) und `dateien = {...}` (virtuelle Dateien).

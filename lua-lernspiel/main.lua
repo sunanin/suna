@@ -1,14 +1,16 @@
 -- ============================================================================
 --  Lua-Quest: ein Lernspiel, in dem du Lua Schritt für Schritt lernst.
 --
---  Starten:          lua main.lua          (am Anfang beginnen)
---                    lua main.lua 9        (direkt bei Level 9 starten)
+--  Starten:          lua main.lua            (Kurs 1 vom Anfang)
+--                    lua main.lua 2          (Kurs 2 vom Anfang)
+--                    lua main.lua 1 9        (Kurs 1, direkt bei Level 9)
 --  Selbsttest:       lua main.lua --selbsttest
 --
 --  Keine Abhängigkeiten, läuft mit Lua 5.3 oder 5.4.
 -- ============================================================================
 
-local LEVELS = {
+local LEVELS -- wird beim Start auf den gewählten Kurs gesetzt
+local KURS1 = {
   -- ==========================================================================
   {
     kapitel = "Kapitel 1: Grundlagen",
@@ -449,7 +451,63 @@ local ERLAUBT = { "tostring", "tonumber", "type", "pairs", "ipairs", "next",
                   "coroutine", "setmetatable", "getmetatable",
                   "rawget", "rawset", "rawequal", "rawlen" }
 
-local function neue_umgebung(ausgabe)
+-- Öffnet eine virtuelle Datei. Sie existiert nur im Speicher, nie auf der Festplatte.
+local function oeffne(vfs, name, modus)
+  modus = modus or "r"
+  local art = modus:sub(1, 1)
+  local schreibbar = art == "w" or art == "a"
+  if art == "w" then
+    vfs[name] = ""
+  elseif art == "a" then
+    vfs[name] = vfs[name] or ""
+  elseif vfs[name] == nil then
+    return nil, "Datei nicht gefunden: " .. name
+  end
+
+  local datei = {}
+  local position = 1
+
+  function datei.write(self, ...)
+    if not schreibbar then
+      return nil, "Datei ist nur zum Lesen geöffnet"
+    end
+    for i = 1, select("#", ...) do
+      vfs[name] = vfs[name] .. tostring((select(i, ...)))
+    end
+    return self
+  end
+
+  function datei.read(self, format)
+    format = (format or "l"):gsub("^%*", "")
+    local inhalt = vfs[name]
+    if format == "a" then
+      local rest = inhalt:sub(position)
+      position = #inhalt + 1
+      return rest
+    end
+    if position > #inhalt then
+      return nil
+    end
+    local ende = inhalt:find("\n", position, true)
+    local zeile
+    if ende then
+      zeile = inhalt:sub(position, ende - 1)
+      position = ende + 1
+    else
+      zeile = inhalt:sub(position)
+      position = #inhalt + 1
+    end
+    return zeile
+  end
+
+  function datei.close()
+    return true
+  end
+
+  return datei
+end
+
+local function neue_umgebung(ausgabe, test)
   local env = {}
   for _, name in ipairs(ERLAUBT) do
     env[name] = _G[name]
@@ -462,6 +520,39 @@ local function neue_umgebung(ausgabe)
     end
     ausgabe[#ausgabe + 1] = table.concat(teile, "\t")
   end
+
+  -- Virtuelles Dateisystem, das für jeden Test neu aufgebaut wird.
+  local vfs = {}
+  for name, inhalt in pairs(test.dateien or {}) do
+    vfs[name] = inhalt
+  end
+  env.io = {
+    write = function(...)
+      local teile = {}
+      for i = 1, select("#", ...) do
+        teile[#teile + 1] = tostring((select(i, ...)))
+      end
+      ausgabe[#ausgabe + 1] = table.concat(teile)
+    end,
+    open = function(name, modus)
+      return oeffne(vfs, name, modus)
+    end,
+  }
+
+  -- require liefert nur die Module, die das Level bereitstellt.
+  env.require = function(name)
+    local modul = (test.bibliothek or {})[name]
+    if modul == nil then
+      error("Modul nicht gefunden: " .. tostring(name), 0)
+    end
+    return modul
+  end
+
+  -- Hilfsfunktion für Tests: liest eine virtuelle Datei nach dem Lauf.
+  env.inhalt = function(name)
+    return vfs[name]
+  end
+
   return env
 end
 
@@ -469,13 +560,18 @@ end
 -- Gibt den Ergebnistext zurück, oder nil und eine Fehlermeldung.
 local function ausfuehren(code, test)
   local ausgabe = {}
-  local env = neue_umgebung(ausgabe)
+  local env = neue_umgebung(ausgabe, test)
   for k, v in pairs(test.setup or {}) do
     env[k] = v
   end
 
   -- Spielercode, dann optionaler Vorbereitungscode, dann der Aufruf.
   local quelltext = code
+  if test.modul then
+    -- Der Code ist ein Modul: er wird als Funktion ausgeführt, M ist ihr Rückgabewert.
+    -- Wrapper in derselben Zeile, damit Zeilennummern in Fehlermeldungen stimmen.
+    quelltext = "local M = (function() " .. code .. "\nend)()"
+  end
   if test.zusatz then
     quelltext = quelltext .. "\n" .. test.zusatz
   end
@@ -522,7 +618,9 @@ end
 -- Gibt true zurück, oder false und eine verständliche Fehlermeldung.
 local function pruefe(level, code)
   for i, test in ipairs(level.tests) do
-    local ist, fehler = ausfuehren(code, test)
+    -- Module gelten für das ganze Level, daher reichen wir sie an jeden Test weiter.
+    local test_mit = setmetatable({ bibliothek = level.bibliothek }, { __index = test })
+    local ist, fehler = ausfuehren(code, test_mit)
     if not ist then
       return false, fehler
     end
@@ -606,7 +704,7 @@ end
 --  Spielablauf
 -- ----------------------------------------------------------------------------
 
-local function spiel(start)
+local function spiel(start, kurs)
   zeige_willkommen()
 
   for nr = start, #LEVELS do
@@ -618,7 +716,7 @@ local function spiel(start)
 
       if eingabe == "quit" then
         print("\nBis bald! Dein Fortschritt: Level " .. nr .. " von " .. #LEVELS
-          .. ". Starte mit  lua main.lua " .. nr .. "  weiter.")
+          .. ". Starte mit  lua main.lua " .. kurs .. " " .. nr .. "  weiter.")
         return
       end
 
@@ -642,6 +740,9 @@ local function spiel(start)
   print("\n============================================")
   print("  Glückwunsch, du hast alle Level geschafft!")
   print("============================================")
+  if kurs == 1 then
+    print("Weiter mit Kurs 2 (Module, Dateien, Tests, Objekte):  lua main.lua 2")
+  end
   print("Wie geht es weiter?")
   print("  - Schreibe eigene Programme, zum Beispiel ein Textadventure oder ein Ratespiel.")
   print("  - Lies das Handbuch:  https://www.lua.org/manual/5.4/")
@@ -652,9 +753,10 @@ end
 --  Selbsttest: prüft, dass jede Musterlösung alle Tests besteht.
 -- ----------------------------------------------------------------------------
 
-local function selbsttest()
+local function selbsttest(name, levels)
+  print("--- " .. name .. " ---")
   local fehlerzahl = 0
-  for nr, level in ipairs(LEVELS) do
+  for nr, level in ipairs(levels) do
     local ok, fehler = pruefe(level, level.loesung)
     if ok then
       print(string.format("Level %2d '%s': OK", nr, level.titel))
@@ -672,10 +774,23 @@ end
 --  Start
 -- ----------------------------------------------------------------------------
 
+-- Kurs 2 liegt als eigene Datei daneben und wird relativ zu main.lua geladen.
+local verzeichnis = (arg and arg[0] and arg[0]:match("(.*/)")) or "./"
+local KURS2 = dofile(verzeichnis .. "kurs2.lua")
+
 if arg and arg[1] == "--selbsttest" then
-  os.exit(selbsttest() and 0 or 1)
+  local ok1 = selbsttest("Kurs 1", KURS1)
+  local ok2 = selbsttest("Kurs 2", KURS2)
+  os.exit((ok1 and ok2) and 0 or 1)
 end
 
-local start = tonumber(arg and arg[1]) or 1
+local kurs = tonumber(arg and arg[1]) or 1
+if kurs ~= 1 and kurs ~= 2 then
+  print("Bitte Kurs 1 oder 2 wählen:  lua main.lua [kurs] [level]")
+  os.exit(1)
+end
+LEVELS = (kurs == 2) and KURS2 or KURS1
+
+local start = tonumber(arg and arg[2]) or 1
 start = math.max(1, math.min(#LEVELS, math.floor(start)))
-spiel(start)
+spiel(start, kurs)
