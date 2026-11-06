@@ -16,7 +16,7 @@ brew install lua
 
 cd lua-lernspiel
 lua main.lua          # vom ersten Level an
-lua main.lua 4        # direkt bei Level 4 starten
+lua main.lua 9        # direkt bei Level 9 starten
 ```
 
 ## Bedienung
@@ -28,14 +28,17 @@ lua main.lua 4        # direkt bei Level 4 starten
 
 ## Levels
 
-1. Hallo Welt (`print`)
-2. Variablen
-3. Rechnen
-4. Entscheidungen (`if`)
-5. Schleifen (`for`)
-6. Funktionen
-7. Tabellen
-8. Boss-Level: Summe (Funktionen, Tabellen und Schleifen zusammen)
+21 Level in 8 Kapiteln plus Abschlussprojekt:
+
+1. **Grundlagen:** Hallo Welt, Variablen, Rechnen, Datentypen
+2. **Kontrollfluss:** if, for, while, break
+3. **Texte:** Länge und Groß/Klein, Suchen und Ersetzen, string.format
+4. **Tabellen:** Listen (insert, concat), Schlüssel-Wert-Tabellen (pairs), sortieren, Summe
+5. **Funktionen vertieft:** mehrere Werte und Varargs, Closures
+6. **Fehler:** error und pcall
+7. **Objekte:** Metatables, eigene Klasse `Konto`
+8. **Coroutines:** Werte nach und nach erzeugen
+9. **Abschlussprojekt:** Wörter zählen
 
 ## Selbsttest
 
@@ -49,7 +52,8 @@ Prüft, dass alle Musterlösungen die Tests bestehen. Nützlich, wenn du selbst 
 
 Jedes Level in `main.lua` in der Liste `LEVELS` hat diese Felder:
 
-- `titel`, `erklaerung`, `beispiel`, `aufgabe`, `hinweis`, `loesung`
+- `kapitel` (optional, zeigt eine Kapitelüberschrift), `titel`, `erklaerung`, `beispiel`, `aufgabe`, `hinweis`, `loesung`
 - `tests`: Liste von Prüfungen. Jede Prüfung hat `erwartet` (die Ausgabe) und entweder
   - `setup = { name = wert }`: Variablen, die vor dem Code gesetzt werden, oder
   - `aufruf = "funktion(3)"`: ein Ausdruck, dessen Ergebnis geprüft wird.
+  - optional `zusatz = "..."`: Lua-Code, der vor dem Aufruf ausgeführt wird (z. B. Objekte anlegen).
